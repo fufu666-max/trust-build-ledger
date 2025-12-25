@@ -5,8 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Lock, Upload } from "lucide-react";
-import { useAccount } from "wagmi";
+import { Lock, Upload, Loader2 } from "lucide-react";
+import { useAccount, useSendTransaction } from "wagmi";
 
 interface CreateTradeDialogProps {
   onCreateTrade: (trade: any) => void;
@@ -15,8 +15,11 @@ interface CreateTradeDialogProps {
 
 export const CreateTradeDialog = ({ onCreateTrade, children }: CreateTradeDialogProps) => {
   const [open, setOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
+  const { sendTransactionAsync } = useSendTransaction();
+
   const [formData, setFormData] = useState({
     buyer: "",
     seller: "",
@@ -26,7 +29,7 @@ export const CreateTradeDialog = ({ onCreateTrade, children }: CreateTradeDialog
     settlementMethod: ""
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!isConnected) {
@@ -38,41 +41,62 @@ export const CreateTradeDialog = ({ onCreateTrade, children }: CreateTradeDialog
       return;
     }
 
-    // Generate encrypted values (mock encryption with hash-like strings)
-    const encryptedValue = `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}`;
-    const encryptedTerms = `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}`;
-    const encryptedSettlement = `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}`;
+    try {
+      setIsSubmitting(true);
+      
+      // Real wallet request: Simulate encrypted data submission
+      // In a real app, this would be a contract call. Here we send a 0 ETH tx to self
+      // to trigger the wallet interaction as requested by the user.
+      await sendTransactionAsync({
+        to: address,
+        value: 0n,
+      });
 
-    const newTrade = {
-      id: Date.now().toString(),
-      buyer: formData.buyer,
-      seller: formData.seller,
-      product: formData.product,
-      encryptedValue,
-      encryptedTerms,
-      encryptedSettlement,
-      status: "pending" as const,
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    };
+      // Generate encrypted values (mock encryption with hash-like strings)
+      const encryptedValue = `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}`;
+      const encryptedTerms = `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}`;
+      const encryptedSettlement = `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}`;
 
-    onCreateTrade(newTrade);
-    
-    toast({
-      title: "Trade Contract Created",
-      description: "Your trade contract has been encrypted and uploaded successfully.",
-    });
+      const newTrade = {
+        id: Date.now().toString(),
+        buyer: formData.buyer,
+        seller: formData.seller,
+        product: formData.product,
+        encryptedValue,
+        encryptedTerms,
+        encryptedSettlement,
+        status: "pending" as const,
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      };
 
-    // Reset form
-    setFormData({
-      buyer: "",
-      seller: "",
-      product: "",
-      tradeValue: "",
-      contractTerms: "",
-      settlementMethod: ""
-    });
-    
-    setOpen(false);
+      onCreateTrade(newTrade);
+      
+      toast({
+        title: "Trade Contract Created",
+        description: "Your trade contract has been encrypted and uploaded successfully.",
+      });
+
+      // Reset form
+      setFormData({
+        buyer: "",
+        seller: "",
+        product: "",
+        tradeValue: "",
+        contractTerms: "",
+        settlementMethod: ""
+      });
+      
+      setOpen(false);
+    } catch (error) {
+      console.error("Submission failed:", error);
+      toast({
+        title: "Submission Failed",
+        description: "The encryption and upload process was cancelled or failed.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -204,10 +228,19 @@ export const CreateTradeDialog = ({ onCreateTrade, children }: CreateTradeDialog
             <Button 
               type="submit" 
               className="flex-1 bg-gradient-to-r from-accent to-secondary hover:opacity-90"
-              disabled={!isConnected}
+              disabled={!isConnected || isSubmitting}
             >
-              <Lock className="w-4 h-4 mr-2" />
-              {isConnected ? "Encrypt & Upload" : "Connect Wallet First"}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Encrypting...
+                </>
+              ) : (
+                <>
+                  <Lock className="w-4 h-4 mr-2" />
+                  Encrypt & Upload
+                </>
+              )}
             </Button>
           </div>
 
